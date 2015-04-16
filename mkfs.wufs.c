@@ -41,6 +41,7 @@ static bitmap IMap;		       /* the inode map */
 static bitmap BMap;		       /* the block map */
 static struct wufs_inode *Inode = 0;  /* the inode structures */
 static struct wufs_dirent *RootDir = 0; /* root directory block */
+static int *btable;
 
 inline int maximum(int a, int b) { return (a>b)?a:b; }
 inline int minimum(int a, int b) { return (a<b)?a:b; }
@@ -586,6 +587,10 @@ void writeFS(void)
   if (Verbose) {
     fprintf(stderr,"file system written.\n");
   }
+}
+
+void alloc_btable() {
+  btable = calloc(1, 1024);
 }
 
 int main(int argc, char **argv)

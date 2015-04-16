@@ -1,6 +1,6 @@
 /*
  * Public declarations for WUFS data structures
- * (c) the Great Class of 2015, especially <your name here>
+ * (c) the Great Class of 2015, especially nathan m perry
  *
  * General note:
  *   All WUFS on-disk struct field names have two letter (sb, in, de) prefixes.
@@ -15,7 +15,7 @@
  * <linux/magic.h> file.  You can get this information with a call to
  * statfs(2) with any file in the file system.
  */
-#define WUFS_MAGIC	0x0EEF  /* V0? idea: in v. 11, this becomes 0xBEEF */
+#define WUFS_MAGIC	0xEEEF  /* V0? idea: in v. 11, this becomes 0xBEEF */
 
 /*
  * the WUFS_BLOCKSIZE should be a multiple of the BLOCK_SIZE found in fs.h
@@ -81,12 +81,11 @@ struct wufs_inode {
 /*
  * wufs_dir_entry:
  * Notes:
- *   - the length of name is clearly too small
- *   - 14 character names will not be null terminated; you have been warned
+ *   - 30 character names will not be null terminated; you have been warned
  *   - the directory entry size should be a power of two
  */
-#define WUFS_NAMELEN 14
-#define WUFS_DIRENTSIZE	16
+#define WUFS_NAMELEN 30
+#define WUFS_DIRENTSIZE	32
 #define WUFS_DIRENTS_PER_BLOCK (WUFS_BLOCKSIZE/WUFS_DIRENTSIZE)
 
 struct wufs_dirent {
