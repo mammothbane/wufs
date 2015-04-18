@@ -92,4 +92,15 @@ struct wufs_dirent {
   __u16 de_ino;			/* inode of entry */
   char  de_name[WUFS_NAMELEN];	/* name of directory file (strncpy-able) */
 };
+
+/*
+ * wufs block pointer
+ * 
+ */
+#define WUFS_BTPRS_PER_BLOCK (WUFS_BLOCKSIZE/2)
+
+struct wufs_bptr {
+  __u16 bp_block[WUFS_BPTRS_PER_BLOCK];          /* address of block */
+};
+
 #endif /* WUFS_FS_H */
