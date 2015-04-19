@@ -41,7 +41,8 @@ static bitmap IMap;		       /* the inode map */
 static bitmap BMap;		       /* the block map */
 static struct wufs_inode *Inode = 0;  /* the inode structures */
 static struct wufs_dirent *RootDir = 0; /* root directory block */
-static int *btable;
+static struct wufs_bptr *indirect = 0; /* the indirect block for the bad block file, if it exists */
+static int indirect_addr = 0; /* address of the indirect block, if it exists */
 
 inline int maximum(int a, int b) { return (a>b)?a:b; }
 inline int minimum(int a, int b) { return (a<b)?a:b; }
@@ -420,68 +421,78 @@ void buildInodes(void)
   rino->in_nlinks++;
   dp++;
 
-  /* We now collect all the bad blocks, bundled together into one or more "files" */
+  /* We now collect all the bad blocks, bundled together into exactly one "file" */
   /* keep count of remaining bad blocks to be bundled */
   int bbc = BadBlocks;
-  int fileNumber = 0;
   int bblock = SB->sb_first_block; /* first possible bad block */
     
-  while (bbc) {
-    /* ... add a ".bad-0", ".bad-1", etc. */
-    char fileName[WUFS_NAMELEN+1];
-    sprintf(fileName,".bad-%x",fileNumber);
-    if (Verbose) {
-      fprintf(stderr,"Placing the following bad blocks in /%s:\n", fileName);
-    }
-    /* 
-     * first, we check to see if we can add another bad block file without
-     * extending the root directory to a second block.  If so, we give up.
-     * (Woof.  This system is a dog.)
-     */
-    if ((dp - RootDir) >= WUFS_DIRENTS_PER_BLOCK) {
-      fprintf(stderr,"Too many bad blocks to store in root directory.\n");
+  /* ... add bad block file to root dir */
+  char fileName = ".badblockfilexactlythirtychars";
+  if (Verbose) {
+    fprintf(stderr,"Placing the following bad blocks in /%s:\n", fileName);
+  }
+  /* 
+   * first, we check to see if we can add another bad block file without
+   * extending the root directory to a second block.  If so, we give up.
+   * (Woof.  This system is a dog.)
+   */
+  if ((dp - RootDir) >= WUFS_DIRENTS_PER_BLOCK) {
+    fprintf(stderr,"Too many bad blocks to store in root directory.\n");
+    exit(1);
+  }
+
+  if (bbc > WUFS_INODE_BPTRS) {
+    fprintf(stderr, "Too many bad blocks to write to a single file.\n");
+    exit(1);
+  }
+  
+  /* allocate inode to hold some bad block pointers */
+  int bbinonum = allocInode();
+  struct wufs_inode *bbino = &Inode[bbinonum-1];
+  int n = 0;
+
+  /* create indirect block if necessary */
+  if (bbc > WUFS_INODE_DIRECT) {
+    indirect_addr = bbino->in_block[WUFS_INODE_BPTRS - 1] = allocBlock();
+    indirect = calloc(1, sizeof(struct wufs_bptr));
+  }
+
+  /* place several bad blocks into this file */
+  while (bbc && (n < WUFS_INODE_BPTRS)) {
+    bblock = findNextSet(BMap,bblock,SB->sb_blocks);
+    /* sanity check: shouldn't run out of bad blocks before bbc hits zero */
+    if (bblock == -1) {
+      fprintf(stderr,"Internal error: lost bad block while building root directory.\n");
       exit(1);
     }
-
-    /* allocate inode to hold some bad block pointers */
-    int bbinonum = allocInode();
-    struct wufs_inode *bbino = &Inode[bbinonum-1];
-    int n = 0;
-
-    /* place several bad blocks into this file */
-    while (bbc && (n < WUFS_INODE_BPTRS)) {
-      bblock = findNextSet(BMap,bblock,SB->sb_blocks);
-      /* sanity check: shouldn't run out of bad blocks before bbc hits zero */
-      if (bblock == -1) {
-	fprintf(stderr,"Internal error: lost bad block while building root directory.\n");
-	exit(1);
+    /* take care: step over root directory block (only one allocated) */
+    if (bblock != rootDir) {
+      if (Verbose) {
+	fprintf(stderr," %d",bblock); fflush(stderr);
       }
-      /* take care: step over root directory block (only one allocated) */
-      if (bblock != rootDir) {
-	if (Verbose) {
-	  fprintf(stderr," %d",bblock); fflush(stderr);
-	}
-	bbino->in_block[n++] = bblock;
-	bbino->in_size += WUFS_BLOCKSIZE;
-	/* one more bad block, taken care of */
-	bbc--;
+      if (n < WUFS_INODE_DIRECT) {
+	bbino->in_block[n] = bblock;
+      } else {
+	indirect->bp_block[n - WUFS_INODE_DIRECT] = bblock;
       }
-      bblock++;
+      /* one more bad block, taken care of */
+      n++;
+      bbino->in_size += WUFS_BLOCKSIZE;
+      bbc--;
     }
-    if (Verbose) {
-      fprintf(stderr,"\n");
-    }
-
-    /* add the file to the root directory */
-    dp->de_ino = bbinonum;
-    strncpy(dp->de_name,fileName,WUFS_NAMELEN);
-    rino->in_size += WUFS_DIRENTSIZE;
-    bbino->in_nlinks++;
-    dp++;
-    
-    /* get read for the next file: */
-    fileNumber++;
+    bblock++;
   }
+  if (Verbose) {
+    fprintf(stderr,"\n");
+  }
+  
+  /* add the file to the root directory */
+  dp->de_ino = bbinonum;
+  strncpy(dp->de_name,fileName,WUFS_NAMELEN);
+  rino->in_size += WUFS_DIRENTSIZE;
+  bbino->in_nlinks++;
+  dp++;
+
 }
 
 /*
@@ -583,14 +594,15 @@ void writeFS(void)
   int rootDirLBA = Inode[0].in_block[0];
   writeBlocks(Disk, rootDirLBA, RootDir, 1);
 
+  /* write the badblock indirect block */
+  if (indirect_addr) {
+    writeBlocks(Disk, indirect_addr, indirect, 1);
+  }
+
   /* free at last, free at last */
   if (Verbose) {
     fprintf(stderr,"file system written.\n");
   }
-}
-
-void alloc_btable() {
-  btable = calloc(1, 1024);
 }
 
 int main(int argc, char **argv)

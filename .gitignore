@@ -42,3 +42,6 @@ blockfile
 
 #lab description
 *.pdf
+
+#binary
+mkfs.wufs

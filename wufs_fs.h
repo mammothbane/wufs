@@ -61,7 +61,10 @@ struct wufs_super_block {
  *   - time is taken to be last modification time
  */
 #define WUFS_LINK_MAX	        255
-#define WUFS_INODE_BPTRS 9
+#define WUFS_INODE_DIRECT 8
+#define WUFS_INODE_INDIRECT 1
+#define WUFS_INODE_PTR_CT (WUFS_INDODE_DIRECT+WUFS_INODE_INDIRECT*WUFS_BPTRS_PER_BLOCK)
+#define WUFS_INODE_BPTRS (WUFS_INODE_DIRECT+WUFS_INODE_INDIRECT)
 #define WUFS_INODESIZE   32
 #define WUFS_INODES_PER_BLOCK (WUFS_BLOCKSIZE/WUFS_INODESIZE)
 #define WUFS_ROOT_INODE 1 /* asserted lba of root directory's inode */
@@ -97,7 +100,7 @@ struct wufs_dirent {
  * wufs block pointer
  * 
  */
-#define WUFS_BTPRS_PER_BLOCK (WUFS_BLOCKSIZE/2)
+#define WUFS_BPTRS_PER_BLOCK (WUFS_BLOCKSIZE/2)
 
 struct wufs_bptr {
   __u16 bp_block[WUFS_BPTRS_PER_BLOCK];          /* address of block */
