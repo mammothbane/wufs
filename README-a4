@@ -1,0 +1,34 @@
+(c) 2015 nathan m perry
+
+This directory contains the source for mkfs.wufs, the
+file system construction tool for the Williams [redacted] File System.
+
+  README-a4 - this file
+  Makefile - make system rules; builds mkfs.wufs by default
+  mkfs.wufs.c - code for building version 0xEEEF of wufs
+  wufs_fs.h - general parameters describing wufs layout
+  wufs.c - bitmap code
+  wufs.h - interface for wufs.c bitmap code, above
+  a4.img - my 1024-block image file
+  a4.od - an octal dump of a4.img
+
+changes:
+  doubled dirent size to 32-byte; allows 30-char filenames
+  last block pointer in inode struct is now indirect
+    8 direct block pointers
+    1 indirect pointer, if needed. 
+    allocates full block of __u16 -> 512 extra blocks
+  changed defines in wufs_fs.h
+    WUFS_INODE_DIRECT - number of direct pointers per inode
+    WUFS_INODE_INDIRECT - number of indirect pointers per inode
+    WUFS_INODE_BPTR - number of pointers per inode (9)
+    WUFS_INODE_PTR_CT - number of blocks per inode (520)
+    WUFS_BPTRS_PER_BLOCK - number of block pointers per block
+  rewrote bad block file allocation
+    only one file '.badblockfilexactlythirtychars' allocated now 
+    fs generation crashes if there are more than 520 bad blocks
+  changed wufs magic number to 0xEEEF
+  max filesize is now in terms of blocks, not bytes
+    changed in mkfs.wufs.c when calculating for superblock entry
+      size is simply WUFS_INODE_PTR_CT
+    documentation updated in wufs_fs.h
