@@ -427,7 +427,7 @@ void buildInodes(void)
   int bblock = SB->sb_first_block; /* first possible bad block */
     
   /* ... add bad block file to root dir */
-  char fileName = ".badblockfilexactlythirtychars";
+  char* fileName = ".badblockfilexactlythirtychars";
   if (Verbose) {
     fprintf(stderr,"Placing the following bad blocks in /%s:\n", fileName);
   }
