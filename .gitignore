@@ -36,6 +36,7 @@
 *.img
 
 blockfile
+badblocks.list
 
 #emacs autosaves
 *~

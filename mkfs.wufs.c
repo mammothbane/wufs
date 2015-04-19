@@ -231,8 +231,8 @@ void buildSuperBlock(void)
     exit(1);
   }
 
-  /* compute the maximum file size (this file system...is a dog) */
-  SB->sb_max_fsize = WUFS_INODE_BPTRS * WUFS_BLOCKSIZE;
+  /* compute the maximum file size in blocks (this file system...is a dog) */
+  SB->sb_max_fsize = WUFS_INODE_PTR_CT;
 
   /* set the state appropriately */
   SB->sb_state = WUFS_VALID_FS;
@@ -244,12 +244,13 @@ void buildSuperBlock(void)
     fprintf(stderr,"%d data blocks available\n",SB->sb_blocks);
     fprintf(stderr,"   %d block(s) reserved for block map\n",SB->sb_bmap_bcnt);
     fprintf(stderr,"%d inodes allocated\n",SB->sb_inodes);
-    fprintf(stderr,"   inodes contain %d pointers\n",WUFS_INODE_BPTRS);
+    fprintf(stderr,"   inodes contain   %d direct pointers\n",WUFS_INODE_DIRECT);
+    fprintf(stderr,"                    %d indirect pointers, with %d direct pointers each\n", WUFS_INODE_INDIRECT, WUFS_BPTRS_PER_BLOCK);
     fprintf(stderr,"   %d block(s) reserved for inode map\n",SB->sb_imap_bcnt);
     fprintf(stderr,"   %d block(s) reserved for %d byte inodes\n",SB->sb_inodes/ipb,
 	    (int)sizeof(struct wufs_inode));
     fprintf(stderr,"first data block is block %d\n",SB->sb_first_block);
-    fprintf(stderr,"maximum file size is %d\n",SB->sb_max_fsize);
+    fprintf(stderr,"maximum file size is %d blocks\n",SB->sb_max_fsize);
     fprintf(stderr,"size of directory entry: %d\n",(int)sizeof(struct wufs_dirent));
   }
   
@@ -424,75 +425,81 @@ void buildInodes(void)
   /* We now collect all the bad blocks, bundled together into exactly one "file" */
   /* keep count of remaining bad blocks to be bundled */
   int bbc = BadBlocks;
-  int bblock = SB->sb_first_block; /* first possible bad block */
+  if (bbc) {
+    int bblock = SB->sb_first_block; /* first possible bad block */
     
-  /* ... add bad block file to root dir */
-  char* fileName = ".badblockfilexactlythirtychars";
-  if (Verbose) {
-    fprintf(stderr,"Placing the following bad blocks in /%s:\n", fileName);
-  }
-  /* 
-   * first, we check to see if we can add another bad block file without
-   * extending the root directory to a second block.  If so, we give up.
-   * (Woof.  This system is a dog.)
-   */
-  if ((dp - RootDir) >= WUFS_DIRENTS_PER_BLOCK) {
-    fprintf(stderr,"Too many bad blocks to store in root directory.\n");
-    exit(1);
-  }
-
-  if (bbc > WUFS_INODE_BPTRS) {
-    fprintf(stderr, "Too many bad blocks to write to a single file.\n");
-    exit(1);
-  }
-  
-  /* allocate inode to hold some bad block pointers */
-  int bbinonum = allocInode();
-  struct wufs_inode *bbino = &Inode[bbinonum-1];
-  int n = 0;
-
-  /* create indirect block if necessary */
-  if (bbc > WUFS_INODE_DIRECT) {
-    indirect_addr = bbino->in_block[WUFS_INODE_BPTRS - 1] = allocBlock();
-    indirect = calloc(1, sizeof(struct wufs_bptr));
-  }
-
-  /* place several bad blocks into this file */
-  while (bbc && (n < WUFS_INODE_BPTRS)) {
-    bblock = findNextSet(BMap,bblock,SB->sb_blocks);
-    /* sanity check: shouldn't run out of bad blocks before bbc hits zero */
-    if (bblock == -1) {
-      fprintf(stderr,"Internal error: lost bad block while building root directory.\n");
+    /* ... add bad block file to root dir */
+    char* fileName = ".badblockfilexactlythirtychars";
+    if (Verbose) {
+      fprintf(stderr,"Placing the following bad blocks in /%s:\n", fileName);
+    }
+    /* 
+     * first, we check to see if we can add another bad block file without
+     * extending the root directory to a second block.  If so, we give up.
+     * (Woof.  This system is a dog.)
+     */
+    if ((dp - RootDir) >= WUFS_DIRENTS_PER_BLOCK) {
+      fprintf(stderr,"Too many bad blocks to store in root directory.\n");
       exit(1);
     }
-    /* take care: step over root directory block (only one allocated) */
-    if (bblock != rootDir) {
-      if (Verbose) {
-	fprintf(stderr," %d",bblock); fflush(stderr);
-      }
-      if (n < WUFS_INODE_DIRECT) {
-	bbino->in_block[n] = bblock;
-      } else {
-	indirect->bp_block[n - WUFS_INODE_DIRECT] = bblock;
-      }
-      /* one more bad block, taken care of */
-      n++;
-      bbino->in_size += WUFS_BLOCKSIZE;
-      bbc--;
-    }
-    bblock++;
-  }
-  if (Verbose) {
-    fprintf(stderr,"\n");
-  }
-  
-  /* add the file to the root directory */
-  dp->de_ino = bbinonum;
-  strncpy(dp->de_name,fileName,WUFS_NAMELEN);
-  rino->in_size += WUFS_DIRENTSIZE;
-  bbino->in_nlinks++;
-  dp++;
 
+    if (bbc > WUFS_INODE_PTR_CT) {
+      fprintf(stderr, "Too many bad blocks to write to a single file.\n");
+      exit(1);
+    }
+  
+    /* allocate inode to hold some bad block pointers */
+    int bbinonum = allocInode();
+    struct wufs_inode *bbino = &Inode[bbinonum-1];
+    int n = 0;
+
+    /* create indirect block if necessary */
+    if (bbc > WUFS_INODE_DIRECT) {
+      indirect = calloc(1, sizeof(struct wufs_bptr));
+    }
+
+    /* place several bad blocks into this file */
+    while (bbc && (n < WUFS_INODE_PTR_CT)) {
+      bblock = findNextSet(BMap,bblock,SB->sb_blocks);
+      /* sanity check: shouldn't run out of bad blocks before bbc hits zero */
+      if (bblock == -1) {
+	fprintf(stderr,"Internal error: lost bad block while building root directory.\n");
+	exit(1);
+      }
+      /* take care: step over root directory block (only one allocated) */
+      if (bblock != rootDir) {
+	if (Verbose) {
+	  fprintf(stderr," %d",bblock); fflush(stderr);
+	}
+	if (n < WUFS_INODE_DIRECT) {
+	  bbino->in_block[n] = bblock;
+	} else {
+	  indirect->bp_block[n - WUFS_INODE_DIRECT] = bblock;
+	}
+	/* one more bad block, taken care of */
+	n++;
+	bbino->in_size += WUFS_BLOCKSIZE;
+	bbc--;
+      }
+      bblock++;
+    }
+
+    if (indirect) {
+      indirect_addr = bbino->in_block[WUFS_INODE_BPTRS - 1] = allocBlock();
+      if (Verbose) fprintf(stderr, "\nrequired indirect block at address %d.", indirect_addr);
+    }
+
+    if (Verbose) {
+      fprintf(stderr,"\n");
+    }
+      
+    /* add the file to the root directory */
+    dp->de_ino = bbinonum;
+    strncpy(dp->de_name,fileName,WUFS_NAMELEN);
+    rino->in_size += WUFS_DIRENTSIZE;
+    bbino->in_nlinks++;
+    dp++;
+  }
 }
 
 /*

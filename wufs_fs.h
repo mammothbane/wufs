@@ -48,7 +48,7 @@ struct wufs_super_block {
   __u16 sb_inodes;		/* count of inodes */
   __u16 sb_imap_bcnt;		/* the size (in blocks) of the imap */
   __u16 sb_bmap_bcnt;		/* the size (in blocks) of the bmap */
-  __u16 sb_max_fsize;		/* the maximum file size */
+  __u16 sb_max_fsize;		/* the maximum file size (in blocks) */
 };
 
 /*
@@ -63,7 +63,7 @@ struct wufs_super_block {
 #define WUFS_LINK_MAX	        255
 #define WUFS_INODE_DIRECT 8
 #define WUFS_INODE_INDIRECT 1
-#define WUFS_INODE_PTR_CT (WUFS_INDODE_DIRECT+WUFS_INODE_INDIRECT*WUFS_BPTRS_PER_BLOCK)
+#define WUFS_INODE_PTR_CT (WUFS_INODE_DIRECT + WUFS_INODE_INDIRECT*WUFS_BPTRS_PER_BLOCK)
 #define WUFS_INODE_BPTRS (WUFS_INODE_DIRECT+WUFS_INODE_INDIRECT)
 #define WUFS_INODESIZE   32
 #define WUFS_INODES_PER_BLOCK (WUFS_BLOCKSIZE/WUFS_INODESIZE)
