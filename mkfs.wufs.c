@@ -232,7 +232,7 @@ void buildSuperBlock(void)
   }
 
   /* compute the maximum file size in blocks (this file system...is a dog) */
-  SB->sb_max_fsize = WUFS_INODE_PTR_CT;
+  SB->sb_max_fsize = WUFS_INODE_PTR_CT*WUFS_BLOCKSIZE;
 
   /* set the state appropriately */
   SB->sb_state = WUFS_VALID_FS;
@@ -443,7 +443,7 @@ void buildInodes(void)
       exit(1);
     }
 
-    if (bbc > WUFS_INODE_PTR_CT) {
+    if (bbc > SB->sb_max_fsize) {
       fprintf(stderr, "Too many bad blocks to write to a single file.\n");
       exit(1);
     }

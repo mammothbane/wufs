@@ -48,7 +48,7 @@ void clearBit(__u8 *f, int i)
 int getBit(__u8 *field, int i)
 {
   int bit = i % 8, idx = i / 8;
-  return field[idx] & (1 << bit);
+  return (field[idx] >> bit) & 1;
 }
 
 /*
@@ -57,8 +57,10 @@ int getBit(__u8 *field, int i)
  */
 int findNextSet(__u8 *f, int i, int n)
 {
-  for (i = (i > 0) ? i : 0; i < n*8; i++) {
-    if (getBit(f, i)) return i;
+  if (i < 0) i = 0;
+  while (i < n) {
+    if (getBit(f, i)) return i;    
+    i++;
   }
   return -1;
 }
@@ -69,8 +71,10 @@ int findNextSet(__u8 *f, int i, int n)
  */
 int findNextClear(__u8 *f, int i, int n)
 {
-  for (i = (i > 0) ? i : 0; i < n*8; i++) {
+  if (i < 0) i = 0;
+  while (i < n) {
     if (!getBit(f, i)) return i;
+    i++;
   }
   return -1;
 }

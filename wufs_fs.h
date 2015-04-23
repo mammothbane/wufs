@@ -15,7 +15,7 @@
  * <linux/magic.h> file.  You can get this information with a call to
  * statfs(2) with any file in the file system.
  */
-#define WUFS_MAGIC	0xEEEF  /* V0? idea: in v. 11, this becomes 0xBEEF */
+#define WUFS_MAGIC	0xEEEF
 
 /*
  * the WUFS_BLOCKSIZE should be a multiple of the BLOCK_SIZE found in fs.h
@@ -48,7 +48,7 @@ struct wufs_super_block {
   __u16 sb_inodes;		/* count of inodes */
   __u16 sb_imap_bcnt;		/* the size (in blocks) of the imap */
   __u16 sb_bmap_bcnt;		/* the size (in blocks) of the bmap */
-  __u16 sb_max_fsize;		/* the maximum file size (in blocks) */
+  __u32 sb_max_fsize;		/* the maximum file size (in bytes) */
 };
 
 /*
@@ -61,7 +61,7 @@ struct wufs_super_block {
  *   - time is taken to be last modification time
  */
 #define WUFS_LINK_MAX	        255
-#define WUFS_INODE_DIRECT 8
+#define WUFS_INODE_DIRECT 7
 #define WUFS_INODE_INDIRECT 1
 #define WUFS_INODE_PTR_CT (WUFS_INODE_DIRECT + WUFS_INODE_INDIRECT*WUFS_BPTRS_PER_BLOCK)
 #define WUFS_INODE_BPTRS (WUFS_INODE_DIRECT+WUFS_INODE_INDIRECT)
@@ -75,7 +75,7 @@ struct wufs_inode {
   __u16 in_uid;			/* user id */
   __u16 in_gid;			/* group id */
   __u32 in_time;		/* file modification time */
-  __u16 in_size;		/* file size (bytes) */
+  __u32 in_size;		/* file size (bytes) */
   /* 14 bytes used so far...*/
   __u16 in_block[WUFS_INODE_BPTRS]; /* index of data blocks */
   /* block logically fills to WUFS_INODESIZE (see below) */
@@ -88,7 +88,7 @@ struct wufs_inode {
  *   - the directory entry size should be a power of two
  */
 #define WUFS_NAMELEN 30
-#define WUFS_DIRENTSIZE	32
+#define WUFS_DIRENTSIZE	(WUFS_NAMELEN + 2)
 #define WUFS_DIRENTS_PER_BLOCK (WUFS_BLOCKSIZE/WUFS_DIRENTSIZE)
 
 struct wufs_dirent {
